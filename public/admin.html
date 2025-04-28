@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>管理后台</title>
+  <style>
+    :root {
+      --primary: #2c3e50;
+      --success: #00C851;
+      --danger: #ff4444;
+      --bg: #f8f9fa;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateX(0); }
+      to { opacity: 0; transform: translateX(20%); }
+    }
+
+    body {
+      margin: 0;
+      padding: 2rem;
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .dashboard {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 2rem;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .form-group {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .input-group {
+      flex: 1 1 300px;
+      min-width: 280px;
+      position: relative;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.8rem;
+      border: 2px solid #eee;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: 0.2s;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 0.8rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: 0.2s;
+    }
+
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+
+    .toast {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 1000;
+      max-width: 90%;
+      animation: 
+        slideIn 0.3s ease,
+        fadeOut 0.3s ease 2.4s forwards;
+    }
+
+    .toast.success {
+      background: var(--success);
+      animation: 
+        slideIn 0.3s ease,
+        fadeOut 0.3s ease 1.4s forwards;
+    }
+
+    .toast.error { background: var(--danger); }
+
+    @media (max-width: 768px) {
+      body { padding: 1rem; }
+      .dashboard { padding: 1rem; }
+      .form-group { display: block; }
+      .input-group { width: 100%; min-width: auto; }
+      input { 
+        min-width: 100% !important;
+        font-size: 14px;
+        padding: 0.7rem 1rem;
+      }
+      .btn-danger {
+        width: 100%;
+        margin-top: 1rem;
+        justify-content: center;
+      }
+      .toolbar { flex-direction: column; }
+      .toolbar button { width: 100%; }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+  <div class="dashboard">
+    <div class="toolbar">
+      <button class="btn-primary" onclick="addNewButton()">
+        <span class="material-icons">add</span>
+        添加按钮
+      </button>
+      <button class="btn-success" onclick="saveChanges()">
+        <span class="material-icons">save</span>
+        保存配置
+      </button>
+    </div>
+    <div id="buttonsList"></div>
+  </div>
+
+  <script>
+    // 在原脚本顶部添加环境检测
+    const API_ENDPOINT = '/api/buttons';
+    
+    // 在原saveChanges函数中修改fetch调用
+    async function saveChanges() {
+      // ... 原有验证逻辑不变
+      try {
+        const response = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newButtons)
+        });
+        // ... 后续处理不变
+      } catch (error) {
+        showToast(`保存失败：${error.message}`, 'error');
+      }
+    }
+    // 初始化状态
+    let buttons = [];
+    let activeToast = null;
+    let toastTimer = null;
+    let lastErrorMessage = ''; // 关键状态：记录最后显示的错误信息
+    let isSaving = false;
+
+    // 提示系统（精准过滤重复错误）
+    function showToast(message, type = 'success') {
+      const duration = type === 'error' ? 3000 : 2000;
+
+      // 相同错误过滤逻辑
+      if (type === 'error') {
+        if (message === lastErrorMessage) return;  // 完全相同的错误直接拦截
+        if (activeToast) return;                  // 已有错误提示时不再叠加
+      }
+
+      // 清除旧提示
+      const clearExisting = () => {
+        if (activeToast) {
+          activeToast.remove();
+          activeToast = null;
+        }
+        clearTimeout(toastTimer);
+      };
+
+      clearExisting();
+
+      // 创建新提示
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = message;
+      document.body.appendChild(toast);
+      activeToast = toast;
+
+      // 记录错误信息
+      if (type === 'error') {
+        lastErrorMessage = message;
+      } else {
+        lastErrorMessage = ''; // 成功提示重置错误记录
+      }
+
+      // 设置自动消失
+      toastTimer = setTimeout(() => {
+        clearExisting();
+        lastErrorMessage = ''; // 提示消失后重置错误记录
+      }, duration);
+    }
+
+    // 加载数据
+    async function loadButtons() {
+      try {
+        const response = await fetch('/api/buttons');
+        buttons = await response.json();
+        renderForm();
+      } catch (error) {
+        showToast('加载配置失败', 'error');
+      }
+    }
+
+    // 渲染表单（增强输入事件处理）
+    function renderForm() {
+      const container = document.getElementById('buttonsList');
+      container.innerHTML = buttons.map((btn, index) => `
+        <div class="form-group">
+          <div class="input-group">
+            <input
+              type="text"
+              value="${btn.name.replace(/"/g, '&quot;')}"
+              placeholder="按钮名称"
+              oninput="lastErrorMessage = ''" // 输入变化时重置错误记录
+            >
+          </div>
+          <div class="input-group">
+            <input
+              type="url"
+              value="${btn.url.replace(/"/g, '&quot;')}"
+              placeholder="目标网址"
+              oninput="lastErrorMessage = ''" // 输入变化时重置错误记录
+            >
+          </div>
+          <button class="btn-danger" onclick="removeButton(${index})">
+            <span class="material-icons">delete</span>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // 添加新按钮
+    function addNewButton() {
+      buttons.push({ name: '', url: '' });
+      renderForm();
+      const newInputs = document.querySelectorAll('.form-group:last-child input');
+      newInputs[0].focus();
+      lastErrorMessage = ''; // 添加新行时重置错误记录
+    }
+
+    // 删除按钮
+    function removeButton(index) {
+      buttons.splice(index, 1);
+      renderForm();
+      lastErrorMessage = ''; // 删除操作后重置错误记录
+    }
+
+    // 保存配置
+    async function saveChanges() {
+      if(isSaving) return;
+      isSaving = true;
+
+      const inputs = document.querySelectorAll('input');
+      const newButtons = [];
+      
+      // 收集数据
+      inputs.forEach((input, i) => {
+        if(i % 2 === 0) {
+          newButtons.push({
+            name: input.value.trim(),
+            url: inputs[i+1].value.trim()
+          });
+        }
+      });
+
+      // 验证数据
+      const errors = newButtons.flatMap((btn, index) => {
+        const errors = [];
+        if (!btn.name) errors.push(`第 ${index + 1} 行：名称未填写`);
+        if (!btn.url) {
+          errors.push(`第 ${index + 1} 行：URL未填写`);
+        } else {
+          try {
+            new URL(btn.url);
+          } catch {
+            errors.push(`第 ${index + 1} 行：无效URL格式`);
+          }
+        }
+        return errors;
+      });
+
+      if (errors.length > 0) {
+        const errorMsg = `发现 ${errors.length} 个问题：<br>${errors.slice(0,3).join('<br>')}`;
+        showToast(errorMsg, 'error');
+        isSaving = false;
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/buttons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newButtons)
+        });
+        
+        if (!response.ok) throw new Error('服务器返回错误');
+        buttons = newButtons;
+        showToast('配置保存成功！', 'success');
+      } catch (error) {
+        showToast(`保存失败：${error.message}`, 'error');
+      } finally {
+        isSaving = false;
+      }
+    }
+
+    // 初始化加载
+    loadButtons();
+  </script>
+</body>
+</html>

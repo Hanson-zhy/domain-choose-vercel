@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/*.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/buttons", "dest": "/api/buttons.js" },
+    { "src": "/admin", "dest": "/public/admin.html" },
+    { "src": "/(.*)", "dest": "/public/index.html" }
+  ],
+  "env": {
+    "KV_REST_API_URL": "@blog-kv-url",
+    "KV_REST_API_TOKEN": "@blog-kv-token"
+  }
+}
